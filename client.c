@@ -43,8 +43,8 @@ void *client_thread(void* arg) {
         
         send(socket_desc, message, strlen(message), 0);
         
-        char Ans[5];
-        recv(socket_desc, Ans, 5, 0);
+        int num;
+        recv(socket_desc, &num, 4, 0);
 
     }
     printf("Done\n");

@@ -67,13 +67,11 @@ file_info files_info[THREAD_COUNT];
 // Done
 void* receiver() {
     int socket_desc;
-    //int addrlen = sizeof(struct sockaddr_in);
 	int client_sockets[THREAD_COUNT];
     struct sockaddr_in server;
-    //struct sockaddr_in clients[9];
     server_init(&socket_desc, &server); 
     for(int i = 0; i < THREAD_COUNT; ++i) {
-        client_sockets[i] = accept(socket_desc,NULL /*(struct sockaddr *)&clients[i]*/,0 /*(socklen_t*)&addrlen*/);
+        client_sockets[i] = accept(socket_desc ,NULL ,0 );
     }
 
     char* client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
@@ -113,7 +111,7 @@ void* worker() {
 
         write(files_info[my_task -> thread_num].fd, my_task -> client_message + HEAD_SIZE, strlen(my_task -> client_message + HEAD_SIZE));
         fsync(files_info[my_task -> thread_num].fd);
-        send(my_task -> client_socket, "Done", 5, 0);
+        send(my_task -> client_socket, &my_task -> message_num, 4, 0);
     
         int next_message_num = files_info[my_task -> thread_num].next_message_num + 1;
         atomic_store(&files_info[my_task -> thread_num].next_message_num, next_message_num);
