@@ -89,17 +89,22 @@ void* worker() {
             my_task = atomic_load(&global_task);
         } while(!my_task || !atomic_cas(&global_task, &my_task, NULL));
 
-        printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
+        //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
         while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)) {
             usleep(10);
         }
 
-        write(files_info[my_task -> thread_num].fd, my_task -> client_message + HEAD_SIZE, strlen(my_task -> client_message + HEAD_SIZE));
+        write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));
         fsync(files_info[my_task -> thread_num].fd);
         send(my_task -> client_socket, &my_task -> message_num, 4, 0);
     
         int next_message_num = files_info[my_task -> thread_num].next_message_num + 1;
         atomic_store(&files_info[my_task -> thread_num].next_message_num, next_message_num);
+
+        if(next_message_num == SEND_COUNT) {
+            close(files_info[my_task -> thread_num].fd);
+        }
+        
         task_free(my_task);
     }
     pthread_exit(0);

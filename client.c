@@ -1,4 +1,7 @@
-#include"client-server.h"
+#include "client-server.h"
+
+#define SERVER_ADDR "0.0.0.0"
+#define FILE_NAME "test_message"
 
 typedef struct {
     int num;
@@ -10,11 +13,9 @@ typedef struct {
  */
 int server_connection_init(int* socket_desc, struct sockaddr_in* server) {
     *socket_desc = socket(AF_INET , SOCK_STREAM , 0); 
-    if(server != NULL) {
-        server -> sin_addr.s_addr = inet_addr("0.0.0.0"); // addres of server 
-        server -> sin_family = AF_INET;
-        server -> sin_port = htons(SERVER_PORT);
-    }
+    server -> sin_addr.s_addr = inet_addr(SERVER_ADDR); // addres of server 
+    server -> sin_family = AF_INET;
+    server -> sin_port = htons(SERVER_PORT);
     return connect(*socket_desc , (struct sockaddr*)server , sizeof(*server)); 
 }
 
@@ -28,9 +29,8 @@ void *client_thread(void* arg) {
     int socket_desc;
 	struct sockaddr_in server;
     if(server_connection_init(&socket_desc, &server) < 0) {
-        printf("Connection erron\n");
+        perror("Connection erron\n");
     }
-    int fd = open("test_message", O_RDONLY);  
 
     for(int i = 0; i < SEND_COUNT; i++) {
         char message[MESSAGE_SIZE + HEAD_SIZE]; 
@@ -39,7 +39,10 @@ void *client_thread(void* arg) {
             message[j] = ' ';
         }
 
-        read(fd, message + HEAD_SIZE, MESSAGE_SIZE); 
+        int fd = open(FILE_NAME, O_RDONLY);  
+        read(fd, skip_head(message), MESSAGE_SIZE); 
+        close(fd);
+
         send(socket_desc, message, strlen(message), 0);
         
         int num;
@@ -47,7 +50,6 @@ void *client_thread(void* arg) {
 
     }
     close(socket_desc);
-    close(fd);
     pthread_exit(0);
 }
 
