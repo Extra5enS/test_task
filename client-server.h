@@ -1,6 +1,5 @@
 #ifndef CLIENT_SERVER
 #define CLIENT_SERVER
-
 #include<pthread.h>
 #include<unistd.h>
 #include<string.h>
@@ -25,5 +24,10 @@
 #define atomic_cas(ptr, old_value_ptr, new_value) __atomic_compare_exchange_n(ptr, old_value_ptr, new_value, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 #define atomic_increment(ptr) __atomic_fetch_add(ptr, 1, __ATOMIC_SEQ_CST)
 #define skip_head(prt) (prt + HEAD_SIZE)
+
+typedef struct {
+    int in;
+    int out;
+} socket_pair;
 
 #endif
