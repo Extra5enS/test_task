@@ -101,21 +101,17 @@ void* worker() {
         }
 
         //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
-        while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)) {
-            usleep(10);
-        }
+        while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)) {}
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));
         fsync(files_info[my_task -> thread_num].fd);
         send(my_task -> client_socket, &my_task -> message_num, 4, 0);
     
-        int next_message_num = files_info[my_task -> thread_num].next_message_num + 1;
-        atomic_store(&files_info[my_task -> thread_num].next_message_num, next_message_num);
+        atomic_increment(&files_info[my_task -> thread_num].next_message_num);
 
-        if(next_message_num == SEND_COUNT) {
+        if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
-        }
-        
+        } 
         task_free(my_task);
     }
     pthread_exit(0);
