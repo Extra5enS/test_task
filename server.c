@@ -64,10 +64,15 @@ void* receiver() {
         for(int i = 0; i < THREAD_COUNT; ++i) {
             if(recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, MSG_DONTWAIT) > 0) {
                 task* client_task = task_init(client_sockets[i], client_message);
-                task* null_ptr = NULL;
                 
-                while(atomic_load(&global_task) || !atomic_cas(&global_task, &null_ptr, client_task)) {
-                    usleep(10);
+                for(;;) {
+                    pthread_mutex_lock(&mutex);
+                    if(!global_task) {
+                        global_task = client_task;
+                        pthread_mutex_unlock(&mutex);
+                        break;
+                    }
+                    pthread_mutex_unlock(&mutex);
                 }
 
                 client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1);       
@@ -83,11 +88,17 @@ void* receiver() {
 
 void* worker() {
     for(;;) {
-        task* my_task;
-        do {
-            usleep(10);
-            my_task = atomic_load(&global_task);
-        } while(!my_task || !atomic_cas(&global_task, &my_task, NULL));
+        task* my_task = NULL;
+        for(;;) {
+            pthread_mutex_lock(&mutex);
+            if(global_task) {
+                my_task = global_task;
+                global_task = NULL;
+                pthread_mutex_unlock(&mutex);
+                break;
+            }
+            pthread_mutex_unlock(&mutex);
+        }
 
         //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
         while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)) {

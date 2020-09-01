@@ -19,6 +19,16 @@ int server_connection_init(int* socket_desc, struct sockaddr_in* server) {
     return connect(*socket_desc , (struct sockaddr*)server , sizeof(*server)); 
 }
 
+void creat_message(char * space_for_message, int thread_num, int message_num) {
+        sprintf(space_for_message, "%d %d", thread_num, message_num);        
+        for(int j = strlen(space_for_message); j < HEAD_SIZE; ++j) {
+            space_for_message[j] = ' ';
+        }
+        int fd = open(FILE_NAME, O_RDONLY);  
+        read(fd, skip_head(space_for_message), MESSAGE_SIZE); 
+        close(fd);
+}
+
 /*
  *  Working prototype without buf and nonblock recv;
  */
@@ -30,21 +40,14 @@ void *client_thread(void* arg) {
 	struct sockaddr_in server;
     if(server_connection_init(&socket_desc, &server) < 0) {
         perror("Connection erron\n");
+        exit(-1);
     }
 
     for(int i = 0; i < SEND_COUNT; i++) {
         char message[MESSAGE_SIZE + HEAD_SIZE]; 
-        sprintf(message, "%d %d", my_num, i);        
-        for(int j = strlen(message); j < HEAD_SIZE; ++j) {
-            message[j] = ' ';
-        }
-
-        int fd = open(FILE_NAME, O_RDONLY);  
-        read(fd, skip_head(message), MESSAGE_SIZE); 
-        close(fd);
-
+        creat_message(message, my_num, i);
         send(socket_desc, message, strlen(message), 0);
-        
+
         int num;
         recv(socket_desc, &num, 4, 0);
 
