@@ -4,29 +4,7 @@
 
 #define SERVER_ADDR "0.0.0.0"
 #define FILE_NAME "test_message"
-/*
- * Changing the capacity of a pipe
-       F_SETPIPE_SZ (int; since Linux 2.6.35)
-              Change the capacity of the pipe referred to by fd to be at least arg bytes.  An unprivileged process can adjust the pipe capacity to any value between the system page size and the
-              limit defined in /proc/sys/fs/pipe-max-size (see proc(5)).  Attempts to set the pipe capacity below the page size are silently rounded up to the page size.  Attempts by an unpriv‐
-              ileged process to set the pipe capacity above the limit in /proc/sys/fs/pipe-max-size yield the error EPERM; a privileged process (CAP_SYS_RESOURCE) can override the limit.
-
-              When allocating the buffer for the pipe, the kernel may use a capacity larger than arg, if that is convenient for the implementation.  (In the current implementation, the  alloca‐
-              tion is the next higher power-of-two page-size multiple of the requested size.)  The actual capacity (in bytes) that is set is returned as the function result.
-
-              Attempting to set the pipe capacity smaller than the amount of buffer space currently used to store data produces the error EBUSY.
-
-       F_GETPIPE_SZ (void; since Linux 2.6.35)
-              Return (as the function result) the capacity of the pipe referred to by fd.
-
- *
- */
-
-
-typedef struct {
-    int num;
-    char * text;
-} message_t;
+#define MAX_BUF_SIZE 1
 
 typedef struct {
     char** array;
@@ -42,7 +20,27 @@ void string_array_init(string_array* sarray, int size) {
     sarray -> space = size;
 }
 
+int string_array_size(string_array* sarray) {
+    if(sarray -> end >= sarray -> start) {
+        return sarray -> end - sarray -> start;    
+    } else {
+        return sarray -> space - sarray -> start + sarray -> end;
+    }
+}
+
 void string_array_add(string_array* sarray, char* message) {
+    if(string_array_size(sarray) == sarray -> space) {
+        char** new_array = calloc(sarray -> space * 2, sizeof(char*));
+        int iter_for_new_array = 0;
+        for(int i = sarray -> start; i != sarray -> end; ++i) {
+            new_array[iter_for_new_array++] = sarray -> array[i % sarray -> space];
+        }
+        sarray -> start = 0;
+        sarray -> end = sarray -> space;
+        sarray -> space *= 2;
+        free(sarray -> array);
+        sarray -> array = new_array;
+    }
     sarray -> array[sarray -> end % sarray -> space] = message;
     sarray -> end++;
 }
@@ -57,9 +55,6 @@ void string_array_free(string_array* sarray) {
     free(sarray -> array);
 }
 
-int string_array_size(string_array* sarray) {
-    return sarray -> end - sarray -> start;
-}
 
 /*
  * Dont forget to close socket_desc!
@@ -92,7 +87,7 @@ void *client_thread(void* arg) {
     int socket_desc;
 	struct sockaddr_in server;
     string_array sarray;
-    string_array_init(&sarray, 10);
+    string_array_init(&sarray, MAX_BUF_SIZE);
     if(server_connection_init(&socket_desc, &server) < 0) {
         perror("Connection erron\n");
         exit(-1);
@@ -111,7 +106,7 @@ void *client_thread(void* arg) {
         int num;
         do {
             num = -1;
-            recv(socket_desc, &num, 4, 0);
+            recv(socket_desc, &num, sizeof(int), 0);
             if(num != -1) {
                 string_array_delete(&sarray);
             }
@@ -126,6 +121,7 @@ void *client_thread(void* arg) {
     close(socket_desc);
     pthread_exit(0);
 }
+
 
 int main() {
     pthread_t thread_mass[THREAD_COUNT];

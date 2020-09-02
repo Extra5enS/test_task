@@ -65,7 +65,6 @@ void* receiver() {
             if(recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, 0) > 0) {
                 int num = -1;
                 send(client_sockets[i], &num, sizeof(int), 0);
-
                 task* client_task = task_init(client_sockets[i], client_message); 
 
                 for(;;) {
@@ -81,7 +80,6 @@ void* receiver() {
             }
         }
     }
-    free(client_message);
     pthread_exit(0);
 }
 
