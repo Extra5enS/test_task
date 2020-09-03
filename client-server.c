@@ -16,6 +16,7 @@ int string_array_size(string_array* sarray) {
 }
 
 void string_array_add(string_array* sarray, char* message) {
+    /*
     if(string_array_size(sarray) == sarray -> space) {
         char** new_array = calloc(sarray -> space * 2, sizeof(char*));
         int iter_for_new_array = 0;
@@ -27,7 +28,7 @@ void string_array_add(string_array* sarray, char* message) {
         sarray -> space *= 2;
         free(sarray -> array);
         sarray -> array = new_array;
-    }
+    }*/
     sarray -> array[sarray -> end % sarray -> space] = message;
     sarray -> end++;
 }

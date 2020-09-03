@@ -4,7 +4,7 @@
 
 #define SERVER_ADDR "0.0.0.0"
 #define FILE_NAME "test_message"
-#define MAX_BUF_SIZE 1
+#define MAX_BUF_SIZE 10
 
 /*
  * Dont forget to close socket_desc!
@@ -47,20 +47,19 @@ void *client_thread(void* arg) {
         creat_message(fd, message, my_num, i);
         close(fd);
         
-        if(send(socket_desc, message, strlen(message), 0) == -1){
+        if(send(socket_desc, message, MESSAGE_SIZE + HEAD_SIZE, 0) == -1){
             perror(strerror(errno));
             exit(-1); 
         }
         string_array_add(&sarray, message);
-        
         int num;
-        do {
+        do { 
             num = -1;
-            recv(socket_desc, &num, sizeof(int), 0);
+            recv(socket_desc, &num, sizeof(int), MSG_DONTWAIT);
             if(num != -1) {
                 string_array_delete(&sarray);
             }
-        } while(num != -1);
+        } while(num != -1 || string_array_size(&sarray) == MAX_BUF_SIZE);
     }
     while(string_array_size(&sarray) != 0) {
         int num = -1;
