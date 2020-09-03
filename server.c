@@ -96,7 +96,7 @@ void* worker() {
             pthread_mutex_unlock(&mutex);
         }
 
-        //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
+        printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
         while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num));
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));

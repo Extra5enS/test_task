@@ -53,13 +53,13 @@ void *client_thread(void* arg) {
         }
         string_array_add(&sarray, message);
         int num;
-        do { 
+        do {
             num = -1;
             recv(socket_desc, &num, sizeof(int), MSG_DONTWAIT);
             if(num != -1) {
                 string_array_delete(&sarray);
             }
-        } while(num != -1 || string_array_size(&sarray) == MAX_BUF_SIZE);
+        } while(num != -1);
     }
     while(string_array_size(&sarray) != 0) {
         int num = -1;
