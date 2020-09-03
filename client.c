@@ -6,56 +6,6 @@
 #define FILE_NAME "test_message"
 #define MAX_BUF_SIZE 1
 
-typedef struct {
-    char** array;
-    int start;
-    int end;
-    int space;
-} string_array;
-
-void string_array_init(string_array* sarray, int size) {
-    sarray -> array = calloc(size, sizeof(char*));
-    sarray -> start = 0;
-    sarray -> end = 0;
-    sarray -> space = size;
-}
-
-int string_array_size(string_array* sarray) {
-    if(sarray -> end >= sarray -> start) {
-        return sarray -> end - sarray -> start;    
-    } else {
-        return sarray -> space - sarray -> start + sarray -> end;
-    }
-}
-
-void string_array_add(string_array* sarray, char* message) {
-    if(string_array_size(sarray) == sarray -> space) {
-        char** new_array = calloc(sarray -> space * 2, sizeof(char*));
-        int iter_for_new_array = 0;
-        for(int i = sarray -> start; i != sarray -> end; ++i) {
-            new_array[iter_for_new_array++] = sarray -> array[i % sarray -> space];
-        }
-        sarray -> start = 0;
-        sarray -> end = sarray -> space;
-        sarray -> space *= 2;
-        free(sarray -> array);
-        sarray -> array = new_array;
-    }
-    sarray -> array[sarray -> end % sarray -> space] = message;
-    sarray -> end++;
-}
-
-void string_array_delete(string_array* sarray) {
-    free(sarray -> array[sarray -> start % sarray -> space]);
-    sarray -> array[sarray -> start % sarray -> space] = NULL;
-    sarray -> start++;
-}
-
-void string_array_free(string_array* sarray) {
-    free(sarray -> array);
-}
-
-
 /*
  * Dont forget to close socket_desc!
  */
@@ -67,14 +17,12 @@ int server_connection_init(int* socket_desc, struct sockaddr_in* server) {
     return connect(*socket_desc , (struct sockaddr*)server , sizeof(*server)); 
 }
 
-void creat_message(char * space_for_message, int thread_num, int message_num) {
+void creat_message(int fd, char* space_for_message, int thread_num, int message_num) {
     sprintf(space_for_message, "%d %d", thread_num, message_num);        
     for(int j = strlen(space_for_message); j < HEAD_SIZE; ++j) {
         space_for_message[j] = ' ';
     }
-    int fd = open(FILE_NAME, O_RDONLY);  
     read(fd, skip_head(space_for_message), MESSAGE_SIZE); 
-    close(fd);
 }
 
 /*
@@ -95,7 +43,9 @@ void *client_thread(void* arg) {
 
     for(int i = 0; i < SEND_COUNT; i++) {
         char* message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
-        creat_message(message, my_num, i);
+        int fd = open(FILE_NAME, O_RDONLY);  
+        creat_message(fd, message, my_num, i);
+        close(fd);
         
         if(send(socket_desc, message, strlen(message), 0) == -1){
             perror(strerror(errno));
