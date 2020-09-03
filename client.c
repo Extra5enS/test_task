@@ -66,7 +66,8 @@ void *client_thread(void* arg) {
     /* Here must be 5'000'000 messages about 8k every one
      * But here we will send one messag 5'000'000 times */
     int my_num = *(int*)arg;
-    int socket_desc;
+    int delete_count = 0;
+    int socket_desc = 0;
 	struct sockaddr_in server;
     string_array sarray;
     string_array_init(&sarray, MAX_BUF_SIZE);
@@ -76,7 +77,7 @@ void *client_thread(void* arg) {
     }
     dninfo.array[my_num].sd = socket_desc;
     atomic_increment(&dninfo.sd_count);
-
+    
     for(int i = 0; i < SEND_COUNT; i++) {
         char* message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
         int fd = open(FILE_NAME, O_RDONLY);  
@@ -89,21 +90,23 @@ void *client_thread(void* arg) {
         }
         string_array_add(&sarray, message);
         
-        int num;
-        do {
-            num = -1;
-           /*
-            * logic to work with income segment
-            */
-            if(num != -1) {
+        int num = dninfo.array[my_num].need_to_delete;
+        if(atomic_cas(&dninfo.array[my_num].need_to_delete, &num, 0)) {
+            delete_count += num;
+            for(;num > 0; --num) {
                 string_array_delete(&sarray);
             }
-        } while(num != -1);
+        }
+
     }
-    while(string_array_size(&sarray) != 0) {
-        int num = -1;
-        recv(socket_desc, &num, 4, 0);
-        string_array_delete(&sarray);
+    while(delete_count != SEND_COUNT) {
+        int num = dninfo.array[my_num].need_to_delete;
+        if(atomic_cas(&dninfo.array[my_num].need_to_delete, &num, 0)) {
+            delete_count += num;
+            for(;num > 0; --num) {
+                string_array_delete(&sarray);
+            }
+        }
     }
     string_array_free(&sarray);
     close(socket_desc);
