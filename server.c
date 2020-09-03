@@ -4,6 +4,15 @@
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
+    int pointer;
+    int nums[BLOCK_SIZE];
+    pthread_mutex_t m;
+} delete_info;
+
+delete_info dinfo[THREAD_COUNT];
+
+
+typedef struct {
     int client_socket;
     int message_num;
     int thread_num;
@@ -63,10 +72,7 @@ void* receiver() {
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
             if(recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, 0) > 0) {
-                //int num = -1;
-                //send(client_sockets[i], &num, sizeof(int), 0);
-                task* client_task = task_init(client_sockets[i], client_message); 
-
+                task* client_task = task_init(client_sockets[i], client_message);
                 for(;;) {
                     pthread_mutex_lock(&mutex);
                     if(!global_task) {
@@ -77,6 +83,9 @@ void* receiver() {
                     pthread_mutex_unlock(&mutex);
                 }
                 client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1);                   
+            } else {
+                perror(strerror(errno));
+                exit(-1); 
             }
         }
     }
@@ -100,14 +109,22 @@ void* worker() {
 
         //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
         while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num));
-
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));
         fsync(files_info[my_task -> thread_num].fd);
-        if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
-            perror(strerror(errno));
-            exit(-1); 
+
+        pthread_mutex_lock(&dinfo[my_task -> thread_num].m);
+        int p = dinfo[my_task -> thread_num].pointer++; 
+        dinfo[my_task -> thread_num].nums[p] = my_task -> message_num;
+        
+        if(dinfo[my_task -> thread_num].pointer == BLOCK_SIZE) {
+            if(send(my_task -> client_socket, dinfo[my_task -> thread_num].nums , BLOCK_SIZE * sizeof(int), 0) == -1) {
+                perror(strerror(errno));
+                exit(-1); 
+            }
+            dinfo[my_task -> thread_num].pointer = 0;
         }
 
+        pthread_mutex_unlock(&dinfo[my_task -> thread_num].m);
         atomic_increment(&files_info[my_task -> thread_num].next_message_num);
 
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
@@ -123,11 +140,14 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-
+    
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
         sprintf(filename, "%d", i);
         files_info[i] = file_info_init(filename);
+        
+        dinfo[i].pointer = 0;
+        pthread_mutex_init(&dinfo[i].m, NULL);
     } 
 
     pthread_create(&receiver_thread, NULL, receiver, NULL);

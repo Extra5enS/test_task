@@ -18,6 +18,7 @@
 #define HEAD_SIZE 20
 #define SEND_COUNT 5000//000
 #define SERVER_PORT 8888
+#define BLOCK_SIZE 10
 
 #define atomic_load(ptr) __atomic_load_n(ptr, __ATOMIC_SEQ_CST)
 #define atomic_store(ptr, new_value)    __atomic_store_n(ptr, new_value, __ATOMIC_SEQ_CST)

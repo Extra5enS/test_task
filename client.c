@@ -35,38 +35,43 @@ void *client_thread(void* arg) {
     int socket_desc;
 	struct sockaddr_in server;
     string_array sarray;
-    string_array_init(&sarray, MAX_BUF_SIZE);
+    string_array_init(&sarray, BLOCK_SIZE);
     if(server_connection_init(&socket_desc, &server) < 0) {
         perror("Connection erron\n");
         exit(-1);
     }
-
-    for(int i = 0; i < SEND_COUNT; i++) {
+    int count_to_delete = 0;
+    for(int i = 0; i < SEND_COUNT; i++) { 
         char* message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
         int fd = open(FILE_NAME, O_RDONLY);  
         creat_message(fd, message, my_num, i);
         close(fd);
         
-        if(send(socket_desc, message, strlen(message), 0) == -1){
+        if(send(socket_desc, message, MESSAGE_SIZE + HEAD_SIZE, 0) == -1){
             perror(strerror(errno));
             exit(-1); 
         }
-        string_array_add(&sarray, message);
+        count_to_delete++;
+        string_array_add(&sarray, message);    
         
-        int num;
-        do {
-            num = -1;
-            recv(socket_desc, &num, sizeof(int), 0);
-            if(num != -1) {
+        if(count_to_delete == BLOCK_SIZE) {
+            int buf[BLOCK_SIZE];
+            if(recv(socket_desc, buf, BLOCK_SIZE * sizeof(int), 0) == -1) {
+                perror(strerror(errno));
+                exit(-1); 
+            }
+            for(int i = 0; i < BLOCK_SIZE; ++i) {
                 string_array_delete(&sarray);
             }
-        } while(num != -1);
+            count_to_delete = 0;
+        }
     }
+    /*
     while(string_array_size(&sarray) != 0) {
         int num = -1;
         recv(socket_desc, &num, 4, 0);
         string_array_delete(&sarray);
-    }
+    }*/
     string_array_free(&sarray);
     close(socket_desc);
     pthread_exit(0);
