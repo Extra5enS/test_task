@@ -2,6 +2,8 @@
 #include "client-server.h"
 #include "task.h"
 
+#define RECV_MSG_NUM 8
+
 typedef struct {
     int next_message_num;
     int fd;
@@ -38,24 +40,17 @@ void* receiver() {
         client_sockets[i] = accept(socket_desc ,NULL ,0 );
     }
  
-    char* client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
+    char* client_message = calloc(MESSAGE_SIZE + HEAD_SIZE + 1, 1); 
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            if(recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, MSG_WAITALL) == -1) {
-                perror(strerror(errno));
-                exit(-1); 
-            }
+            recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, MSG_WAITALL);
             task* client_task = task_init(client_sockets[i], client_message); 
 
-            //printf("%s\n\n####\n\n", client_message);
             for(;;) {
-                pthread_mutex_lock(&mutex);
                 if(!global_task) {
                     global_task = client_task;
-                    pthread_mutex_unlock(&mutex);
                     break;
                 }
-                pthread_mutex_unlock(&mutex);
             }
             client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1);                   
         }

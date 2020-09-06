@@ -43,7 +43,7 @@ void *client_thread(void* arg) {
     }
 
     for(int i = 0; i < SEND_COUNT; i++) {
-        char* message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1); 
+        char* message = calloc(MESSAGE_SIZE + HEAD_SIZE + 1, 1); 
         int fd = open(FILE_NAME, O_RDONLY);  
         creat_message(fd, message, my_num, i);
         close(fd);
