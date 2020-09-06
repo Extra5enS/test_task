@@ -1,6 +1,7 @@
-#include "client-server.h"
 #include <errno.h>
 #include <fcntl.h>
+#include "client-server.h"
+#include "string_array.h"
 
 #define SERVER_ADDR "0.0.0.0"
 #define FILE_NAME "test_message"

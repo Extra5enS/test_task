@@ -25,18 +25,4 @@
 #define atomic_increment(ptr) __atomic_fetch_add(ptr, 1, __ATOMIC_SEQ_CST)
 #define skip_head(prt) (prt + HEAD_SIZE)
 
-
-typedef struct {
-    char** array;
-    int start;
-    int end;
-    int space;
-} string_array;
-
-void string_array_init(string_array* sarray, int size);
-int string_array_size(string_array* sarray);
-void string_array_add(string_array* sarray, char* message);
-void string_array_delete(string_array* sarray);
-void string_array_free(string_array* sarray);
-char* string_array_get(string_array* sarray);
 #endif

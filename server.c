@@ -1,26 +1,6 @@
-#include "client-server.h"
 #include <errno.h>
-
-
-typedef struct {
-    int client_socket;
-    int message_num;
-    int thread_num;
-    char* client_message;
-} task;
-
-task* task_init(int client_socket, char* client_message) {
-    task* client_task = calloc(1, sizeof(task));
-    sscanf(client_message, "%d %d", &(client_task -> thread_num), &(client_task -> message_num));
-    client_task -> client_socket = client_socket;
-    client_task -> client_message = client_message;    
-    return client_task;
-}
-
-void task_free(task* client_task) {
-    free(client_task -> client_message);
-    free(client_task);
-}
+#include "client-server.h"
+#include "task.h"
 
 typedef struct {
     int next_message_num;
@@ -34,7 +14,6 @@ file_info file_info_init(char* filename) {
     fileinfo.next_message_num = 0;
     return fileinfo;
 } 
-
 
 void server_init(int* socket_desc, struct sockaddr_in* server) {
     *socket_desc = socket(AF_INET , SOCK_STREAM , 0);
