@@ -43,12 +43,12 @@ void *client_thread(void* arg) {
     }
 
     for(int i = 0; i < SEND_COUNT; i++) {
-        char* message = calloc(MESSAGE_SIZE + HEAD_SIZE + 1, 1); 
+        char* message = calloc(ALL_SIZE + 1, 1); 
         int fd = open(FILE_NAME, O_RDONLY);  
         creat_message(fd, message, my_num, i);
         close(fd);
         
-        if(send(socket_desc, message, MESSAGE_SIZE + HEAD_SIZE, 0) == -1){
+        if(send(socket_desc, message, ALL_SIZE, 0) == -1){
             perror(strerror(errno));
             exit(-1); 
         }

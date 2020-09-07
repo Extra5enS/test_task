@@ -40,10 +40,10 @@ void* receiver() {
         client_sockets[i] = accept(socket_desc ,NULL ,0 );
     }
  
-    char* client_message = calloc(MESSAGE_SIZE + HEAD_SIZE + 1, 1); 
+    char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            recv(client_sockets[i], client_message, MESSAGE_SIZE + HEAD_SIZE, MSG_WAITALL);
+            recv(client_sockets[i], client_message, ALL_SIZE, MSG_WAITALL);
             task* client_task = task_init(client_sockets[i], client_message); 
 
             for(;;) {
@@ -52,7 +52,7 @@ void* receiver() {
                     break;
                 }
             }
-            client_message = calloc(MESSAGE_SIZE + HEAD_SIZE, 1);                   
+            client_message = calloc(ALL_SIZE + 1, 1);                   
         }
     }
     pthread_exit(0);
