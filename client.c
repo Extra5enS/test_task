@@ -56,8 +56,8 @@ void *client_thread(void* arg) {
         int num = 0;
         do {
             int flage = sarray.size == sarray.space ? 0 : MSG_DONTWAIT;
-            recv(socket_desc, &num, sizeof(int), flage);
             num = -1;
+            recv(socket_desc, &num, sizeof(int), flage);
             if(num != -1) {
                 string_array_delete(&sarray);
             }
