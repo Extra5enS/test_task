@@ -33,23 +33,13 @@ int task_array_size(task_array* tarray) {
     }
 }
 
-void task_array_add(task_array* tarray, task* t) {
-    pthread_mutex_lock(&wmutex);
+int task_array_add(task_array* tarray, task* t) {
     if(task_array_size(tarray) == tarray -> space) {
-        task** new_array = calloc(tarray -> space * 2, sizeof(task*));
-        int iter_for_new_array = 0;
-        for(int i = tarray -> start; i != tarray -> end; ++i) {
-            new_array[iter_for_new_array++] = tarray -> array[i % tarray -> space];
-        }
-        tarray -> start = 0;
-        tarray -> end = tarray -> space;
-        tarray -> space *= 2;
-        free(tarray -> array);
-        tarray -> array = new_array;
+        return 0;
     }
-    pthread_mutex_unlock(&wmutex);
     tarray -> array[tarray -> end % tarray -> space] = t;
     tarray -> end++;
+    return 1;
 }
 
 void task_array_delete(task_array* tarray) {

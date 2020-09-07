@@ -30,6 +30,8 @@ void server_init(int* socket_desc, struct sockaddr_in* server) {
 task* global_task;
 file_info files_info[THREAD_COUNT];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+task_array tarray;
+
 
 void* receiver() {
     int socket_desc;
@@ -37,7 +39,7 @@ void* receiver() {
     struct sockaddr_in server;
     server_init(&socket_desc, &server);
     for(int i = 0; i < THREAD_COUNT; ++i) {
-        client_sockets[i] = accept(socket_desc ,NULL ,0 );
+        client_sockets[i] = accept(socket_desc, NULL, 0);
     }
  
     char* client_message = calloc(ALL_SIZE + 1, 1); 
@@ -45,13 +47,7 @@ void* receiver() {
         for(int i = 0; i < THREAD_COUNT; ++i) {
             recv(client_sockets[i], client_message, ALL_SIZE, MSG_WAITALL);
             task* client_task = task_init(client_sockets[i], client_message); 
-
-            for(;;) {
-                if(!global_task) {
-                    global_task = client_task;
-                    break;
-                }
-            }
+            while(!task_array_add(&tarray, client_task));
             client_message = calloc(ALL_SIZE + 1, 1);                   
         }
     }
@@ -62,19 +58,8 @@ void* receiver() {
 void* worker() {
     for(;;) {
         task* my_task = NULL;
-        for(;;) {
-            pthread_mutex_lock(&mutex);
-            if(global_task) {
-                my_task = global_task;
-                global_task = NULL;
-                pthread_mutex_unlock(&mutex);
-                break;
-            }
-            pthread_mutex_unlock(&mutex);
-        }
-
-        //printf("%d %d\n", my_task->thread_num, my_task -> message_num); 
-        while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num));
+        while(!(my_task = task_array_get(&tarray)));
+        while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)); 
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));
         fsync(files_info[my_task -> thread_num].fd);
@@ -87,7 +72,7 @@ void* worker() {
         atomic_increment(&files_info[my_task -> thread_num].next_message_num);
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
-        } 
+        }
         task_free(my_task);
     }
     pthread_exit(0);
@@ -98,7 +83,8 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-
+    task_array_init(&tarray, 1000);
+    
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
         sprintf(filename, "%d", i);
