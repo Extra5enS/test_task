@@ -23,31 +23,26 @@ void task_array_init(task_array* tarray, int size) {
     tarray -> start = 0;
     tarray -> end = 0;
     tarray -> space = size;
-}
-
-int task_array_size(task_array* tarray) {
-    if(tarray -> end >= tarray -> start) {
-        return tarray -> end - tarray -> start;    
-    } else {
-        return tarray -> space - tarray -> start + tarray -> end;
-    }
+    tarray -> size = 0;
 }
 
 int task_array_add(task_array* tarray, task* t) {
-    if(task_array_size(tarray) == tarray -> space) {
+    if(tarray -> size == tarray -> space) {
         return 0;
     }
     tarray -> array[tarray -> end % tarray -> space] = t;
     tarray -> end++;
+    tarray -> size++;
     return 1;
 }
 
 void task_array_delete(task_array* tarray) {
     pthread_mutex_lock(&wmutex);
-    if(tarray -> start != tarray -> end) {
+    if(tarray -> size != tarray -> space) {
         free(tarray -> array[tarray -> start % tarray -> space]);
         tarray -> array[tarray -> start % tarray -> space] = NULL;
         tarray -> start++;
+        tarray -> size--;
     }
     pthread_mutex_unlock(&wmutex);
 }
@@ -55,10 +50,11 @@ void task_array_delete(task_array* tarray) {
 task* task_array_get(task_array* tarray) {
     task* res_task = NULL;
     pthread_mutex_lock(&wmutex);
-    if(tarray -> start != tarray -> end) {
+    if(tarray -> size != tarray -> space) {
         res_task = tarray -> array[tarray -> start % tarray -> space];
         tarray -> array[tarray -> start % tarray -> space] = NULL;
         tarray -> start++;
+        tarray -> size--;
     }
     pthread_mutex_unlock(&wmutex);
     return res_task;
