@@ -53,13 +53,16 @@ void *client_thread(void* arg) {
             exit(-1); 
         }
 
-        int num = -1;
-        int flage = sarray.size == sarray.space ? 0 : MSG_DONTWAIT;
-        recv(socket_desc, &num, sizeof(int), flage);
-        if(num != -1) {
-            string_array_delete(&sarray);
-        }
-         string_array_add(&sarray, message);
+        int num = 0;
+        do {
+            int flage = sarray.size == sarray.space ? 0 : MSG_DONTWAIT;
+            recv(socket_desc, &num, sizeof(int), flage);
+            num = -1;
+            if(num != -1) {
+                string_array_delete(&sarray);
+            }
+        } while(num != -1 && sarray.size != 0);
+        string_array_add(&sarray, message);
     }
     while(sarray.size != 0) {
         int num = -1;
