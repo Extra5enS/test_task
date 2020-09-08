@@ -19,12 +19,11 @@ typedef struct {
     int end;
     int space;
     int size;
-    pthread_mutex_t wmutex;
     sem_t wsem, rsem;
 } task_array;
 
 void task_array_init(task_array* tarray, int size);
-int task_array_add(task_array* tarray, task* message);
+void task_array_add(task_array* tarray, task* message);
 void task_array_delete(task_array* tarray);
 void task_array_free(task_array* tarray);
 task* task_array_get(task_array* tarray);
