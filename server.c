@@ -29,7 +29,6 @@ void server_init(int* socket_desc, struct sockaddr_in* server) {
 
 task* global_task;
 file_info files_info[THREAD_COUNT];
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 task_array tarray;
 
 
@@ -45,9 +44,10 @@ void* receiver() {
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            recv(client_sockets[i], client_message, ALL_SIZE, MSG_WAITALL);
+            // можно ждать сообщение, которое не приходит, из-за того что тупит клиент //
+            recv(client_sockets[i], client_message, ALL_SIZE, 0/*MSG_WAITALL*/);
             task* client_task = task_init(client_sockets[i], client_message); 
-            while(!task_array_add(&tarray, client_task));
+            task_array_add(&tarray, client_task);
             client_message = calloc(ALL_SIZE + 1, 1);                   
         }
     }
@@ -58,7 +58,8 @@ void* receiver() {
 void* worker() {
     for(;;) {
         task* my_task = NULL;
-        while(!(my_task = task_array_get(&tarray)));
+        my_task = task_array_get(&tarray);
+        // маловероятное ожидание того, кто еще не написал сообщения со меньшими номирами
         while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)); 
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));

@@ -1,5 +1,8 @@
 #ifndef TASK
 #define TASK
+#include<pthread.h>
+#include<semaphore.h>
+
 typedef struct {
     int client_socket;
     int message_num;
@@ -16,6 +19,8 @@ typedef struct {
     int end;
     int space;
     int size;
+    pthread_mutex_t wmutex;
+    sem_t wsem, rsem;
 } task_array;
 
 void task_array_init(task_array* tarray, int size);
