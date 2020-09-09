@@ -44,10 +44,14 @@ void* receiver() {
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            recv(client_sockets[i], client_message, ALL_SIZE, 0/*MSG_WAITALL*/); // <==
-            task* client_task = task_init(client_sockets[i], client_message); 
-            task_array_add(&tarray, client_task);
-            client_message = calloc(ALL_SIZE + 1, 1);                   
+            int len = 0;
+            if((len = recv(client_sockets[i], client_message, ALL_SIZE, 0/*MSG_WAITALL*/)) == -1) {
+                
+            } else if(len > 0) {
+                task* client_task = task_init(client_sockets[i], client_message); 
+                task_array_push(&tarray, client_task);
+                client_message = calloc(ALL_SIZE + 1, 1);
+            }
         }
     }
     free(client_message);
@@ -59,9 +63,9 @@ void* worker() {
     for(;;) {
         task* my_task = NULL;
         my_task = task_array_get(&tarray);
-        while(my_task -> message_num != atomic_load(&files_info[my_task -> thread_num].next_message_num)); 
+        while(my_task -> message_num != files_info[my_task -> thread_num].next_message_num); 
 
-        write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), strlen(skip_head(my_task -> client_message)));
+        write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), MESSAGE_SIZE);
         fsync(files_info[my_task -> thread_num].fd);
        
         if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
@@ -69,7 +73,7 @@ void* worker() {
             exit(-1); 
         }
 
-        atomic_increment(&files_info[my_task -> thread_num].next_message_num);
+        files_info[my_task -> thread_num].next_message_num++;
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
         }
@@ -83,7 +87,7 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-    task_array_init(&tarray, 1000);
+    task_array_init(&tarray, 100);
     
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
