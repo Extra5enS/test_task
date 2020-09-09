@@ -30,7 +30,7 @@ void server_init(int* socket_desc, struct sockaddr_in* server) {
 task* global_task;
 file_info files_info[THREAD_COUNT];
 task_array tarray;
-
+int semid;
 
 void* receiver() {
     int socket_desc;
@@ -65,7 +65,7 @@ void* receiver() {
 void* worker() {
     for(;;) {
         task* my_task = task_array_get(&tarray);
-        while(my_task -> message_num != files_info[my_task -> thread_num].next_message_num); 
+        sem_operation(semid, my_task -> thread_num, -1 * my_task -> message_num); 
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), MESSAGE_SIZE);
         fsync(files_info[my_task -> thread_num].fd);
@@ -75,7 +75,8 @@ void* worker() {
             exit(-1); 
         }
 
-        files_info[my_task -> thread_num].next_message_num++;
+        sem_operation(semid, my_task -> thread_num, my_task -> message_num + 1);
+        
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
         }
@@ -89,8 +90,9 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-    task_array_init(&tarray, BUF_SIZE);
-    
+    task_array_init(&tarray, BUF_SIZE); 
+    semid = semget(IPC_PRIVATE, THREAD_COUNT, IPC_CREAT|IPC_EXCL|0600);
+
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
         sprintf(filename, "%d", i);
@@ -106,6 +108,8 @@ int main() {
     for(int i = 0; i < THREAD_COUNT / 3; ++i) {
         pthread_join(worker_thread_mass[i], NULL);
     }
+    task_array_free(&tarray);
+    semctl(semid, 0, IPC_RMID);
     return 0;
 }
 

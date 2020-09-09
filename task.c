@@ -75,5 +75,6 @@ task* task_array_get(task_array* tarray) {
 }
 
 void task_array_free(task_array* tarray) {
+    semctl(tarray -> semid, 0, IPC_RMID);
     free(tarray -> array);
 }
