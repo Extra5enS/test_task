@@ -5,7 +5,7 @@
 
 #define SERVER_ADDR "0.0.0.0"
 #define FILE_NAME "test_message"
-#define MAX_BUF_SIZE 10
+#define MAX_BUF_SIZE 50
 
 /*
  * Dont forget to close socket_desc!

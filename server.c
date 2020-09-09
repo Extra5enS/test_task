@@ -2,7 +2,7 @@
 #include "client-server.h"
 #include "task.h"
 
-#define RECV_MSG_NUM 8
+#define BUF_SIZE 100
 
 typedef struct {
     int next_message_num;
@@ -44,10 +44,13 @@ void* receiver() {
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            int len = 0;
-            if((len = recv(client_sockets[i], client_message, ALL_SIZE, 0/*MSG_WAITALL*/)) == -1) {
-                
-            } else if(len > 0) {
+            int msglen = 0;
+            if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
+                /* recv don't guarantee that a message of the specified length will be received.
+                 * So it is necessary to wait for the remainder of the message in this case. */
+                if(msglen != ALL_SIZE) {
+                    recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, MSG_WAITALL);
+                }
                 task* client_task = task_init(client_sockets[i], client_message); 
                 task_array_push(&tarray, client_task);
                 client_message = calloc(ALL_SIZE + 1, 1);
@@ -61,8 +64,7 @@ void* receiver() {
 
 void* worker() {
     for(;;) {
-        task* my_task = NULL;
-        my_task = task_array_get(&tarray);
+        task* my_task = task_array_get(&tarray);
         while(my_task -> message_num != files_info[my_task -> thread_num].next_message_num); 
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), MESSAGE_SIZE);
@@ -87,7 +89,7 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-    task_array_init(&tarray, 100);
+    task_array_init(&tarray, BUF_SIZE);
     
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];

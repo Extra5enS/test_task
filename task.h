@@ -1,7 +1,11 @@
 #ifndef TASK
 #define TASK
 #include<pthread.h>
-#include<semaphore.h>
+#include<sys/types.h>
+#include<sys/ipc.h>
+#include<sys/sem.h>
+
+int sem_operation(int semid, int semname, int n);
 
 typedef struct {
     int client_socket;
@@ -19,11 +23,11 @@ typedef struct {
     int end;
     int space;
     int size;
-    sem_t wsem, rsem;
+    int semid;
     pthread_mutex_t mutex;
 } task_array;
 
-void task_array_init(task_array* tarray, int size);
+void task_array_init(task_array* tarray, int space);
 void task_array_push(task_array* tarray, task* message);
 void task_array_pop(task_array* tarray);
 void task_array_free(task_array* tarray);
