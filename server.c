@@ -2,7 +2,7 @@
 #include "client-server.h"
 #include "task.h"
 
-#define BUF_SIZE 100
+#define BUF_SIZE 1000
 
 typedef struct {
     int next_message_num;
@@ -65,6 +65,7 @@ void* receiver() {
 void* worker() {
     for(;;) {
         task* my_task = task_array_get(&tarray);
+        /* Next operation is need to wait writing of previous message. */
         sem_operation(semid, my_task -> thread_num, -1 * my_task -> message_num); 
 
         write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), MESSAGE_SIZE);
@@ -74,9 +75,8 @@ void* worker() {
             perror(strerror(errno));
             exit(-1); 
         }
-
+        /* Now we write that next message have number = message_num + 1 */
         sem_operation(semid, my_task -> thread_num, my_task -> message_num + 1);
-        
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
         }
