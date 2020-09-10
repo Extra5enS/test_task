@@ -48,8 +48,9 @@ void* receiver() {
             if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
                 /* recv don't guarantee that a message of the specified length will be received.
                  * So it is necessary to wait for the remainder of the message in this case. */
-                if(msglen != ALL_SIZE) {
-                    recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, MSG_WAITALL);
+                while(msglen != ALL_SIZE) {
+                    int len = recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, 0);
+                    msglen += len;
                 }
                 task* client_task = task_init(client_sockets[i], client_message); 
                 task_array_push(&tarray, client_task);
