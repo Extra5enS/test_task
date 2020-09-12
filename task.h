@@ -5,7 +5,15 @@
 #include<sys/ipc.h>
 #include<sys/sem.h>
 
-int sem_operation(int semid, int semname, int n);
+typedef struct {
+    int counter;
+    pthread_mutex_t main_lock;
+    pthread_mutex_t save_lock;
+} count_lock;
+
+void count_lock_init(count_lock* cl, int start_count);
+void count_lock_up(count_lock* cl);
+void count_lock_down(count_lock* cl);
 
 typedef struct {
     int client_socket;
@@ -23,8 +31,8 @@ typedef struct {
     int end;
     int space;
     int size;
-    int semid;
     pthread_mutex_t mutex;
+    count_lock rlock, wlock;
 } task_array;
 
 void task_array_init(task_array* tarray, int space);

@@ -5,7 +5,7 @@
 
 #define SERVER_ADDR "0.0.0.0"
 #define FILE_NAME "test_message"
-#define MAX_BUF_SIZE 50
+#define MAX_BUF_SIZE 20
 
 /*
  * Dont forget to close socket_desc!
@@ -35,13 +35,19 @@ void *client_thread(void* arg) {
     int my_num = *(int*)arg;
     int socket_desc;
 	struct sockaddr_in server;
-    string_array sarray;
-    string_array_init(&sarray, MAX_BUF_SIZE);
     if(server_connection_init(&socket_desc, &server) < 0) {
         perror("Connection erron\n");
         exit(-1);
     }
+    /* 
+    int recv_buf_size = 0;
+    unsigned int size_of_int = sizeof(int);
+    getsockopt(socket_desc, SOL_SOCKET, SO_SNDBUF, &recv_buf_size, &size_of_int); // return value greater then wmem_max
+    printf("%d\n", recv_buf_size);*/
 
+    string_array sarray;
+    string_array_init(&sarray, MAX_BUF_SIZE);
+    
     for(int i = 0; i < SEND_COUNT; i++) {
         char* message = calloc(ALL_SIZE + 1, 1); 
         int fd = open(FILE_NAME, O_RDONLY);  

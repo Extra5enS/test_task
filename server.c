@@ -7,6 +7,7 @@
 typedef struct {
     int next_message_num;
     int fd;
+    pthread_mutex_t mutex;
 } file_info;
 
 // when you finish to use file_info? you must write close(file_info.fd); to close file!
@@ -14,8 +15,30 @@ file_info file_info_init(char* filename) {
     file_info fileinfo;
     fileinfo.fd = open(filename, O_APPEND|O_CREAT|O_WRONLY, __S_IWRITE|__S_IREAD);
     fileinfo.next_message_num = 0;
+    pthread_mutex_init(&fileinfo.mutex, NULL);
     return fileinfo;
 } 
+
+void file_info_lock(file_info* fi, int wait_value) {
+    for(;;) {
+        pthread_mutex_lock(&fi -> mutex);
+        if(fi -> next_message_num == wait_value) {
+            break;
+        } else {
+            pthread_mutex_unlock(&fi -> mutex);
+        }
+    }
+}
+
+void file_info_unlock(file_info* fi) {
+    fi -> next_message_num++;
+    pthread_mutex_unlock(&fi -> mutex);
+}
+
+void file_info_write(file_info* fi, char* message) {
+    write(fi -> fd, message, MESSAGE_SIZE);
+    fsync(fi -> fd);
+}
 
 void server_init(int* socket_desc, struct sockaddr_in* server) {
     *socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -30,7 +53,6 @@ void server_init(int* socket_desc, struct sockaddr_in* server) {
 task* global_task;
 file_info files_info[THREAD_COUNT];
 task_array tarray;
-int semid;
 
 void* receiver() {
     int socket_desc;
@@ -45,6 +67,7 @@ void* receiver() {
     for(;;) {
         for(int i = 0; i < THREAD_COUNT; ++i) {
             int msglen = 0;
+            // try to use select or epoll
             if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
                 /* recv don't guarantee that a message of the specified length will be received.
                  * So it is necessary to wait for the remainder of the message in this case. */
@@ -67,17 +90,16 @@ void* worker() {
     for(;;) {
         task* my_task = task_array_get(&tarray);
         /* Next operation is need to wait writing of previous message. */
-        sem_operation(semid, my_task -> thread_num, -1 * my_task -> message_num); 
-
-        write(files_info[my_task -> thread_num].fd, skip_head(my_task -> client_message), MESSAGE_SIZE);
-        fsync(files_info[my_task -> thread_num].fd);
-       
+        file_info_lock(&files_info[my_task -> thread_num], my_task -> message_num); 
+        file_info_write(&files_info[my_task -> thread_num], skip_head(my_task -> client_message));
+        
         if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
             perror(strerror(errno));
             exit(-1); 
-        }
+        } 
         /* Now we write that next message have number = message_num + 1 */
-        sem_operation(semid, my_task -> thread_num, my_task -> message_num + 1);
+        file_info_unlock(&files_info[my_task -> thread_num]);
+        
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
         }
@@ -92,7 +114,6 @@ int main() {
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
     task_array_init(&tarray, BUF_SIZE); 
-    semid = semget(IPC_PRIVATE, THREAD_COUNT, IPC_CREAT|IPC_EXCL|0600);
 
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
@@ -110,7 +131,6 @@ int main() {
         pthread_join(worker_thread_mass[i], NULL);
     }
     task_array_free(&tarray);
-    semctl(semid, 0, IPC_RMID);
     return 0;
 }
 
