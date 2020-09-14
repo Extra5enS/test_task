@@ -2,7 +2,7 @@
 #include "client-server.h"
 #include "task.h"
 
-#define BUF_SIZE 1000
+#define BUF_SIZE 2000
 
 typedef struct {
     int next_message_num;
@@ -92,7 +92,7 @@ void* worker() {
         /* Next operation is need to wait writing of previous message. */
         file_info_lock(&files_info[my_task -> thread_num], my_task -> message_num); 
         file_info_write(&files_info[my_task -> thread_num], skip_head(my_task -> client_message));
-        
+      
         if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
             perror(strerror(errno));
             exit(-1); 

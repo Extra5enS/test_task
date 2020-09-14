@@ -22,15 +22,14 @@ void count_lock_down(count_lock* cl) {
     int can_go = 0;
     while(!can_go) {
         pthread_mutex_lock(&cl -> main_lock);
+        
         pthread_mutex_lock(&cl -> save_lock);
-        if(cl -> counter == 0) {
-            pthread_mutex_unlock(&cl -> save_lock);
-        } else {
+        if(cl -> counter != 0) {
             cl -> counter--;
-            pthread_mutex_unlock(&cl -> save_lock);
             pthread_mutex_unlock(&cl -> main_lock);
             can_go = 1;
         }
+        pthread_mutex_unlock(&cl -> save_lock);
     }
 }
 
