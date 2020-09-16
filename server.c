@@ -59,26 +59,37 @@ void* receiver() {
 	int client_sockets[THREAD_COUNT];
     struct sockaddr_in server;
     server_init(&socket_desc, &server);
+    fd_set fds;
+    int max_fd = 0;
+    FD_ZERO(&fds);
     for(int i = 0; i < THREAD_COUNT; ++i) {
         client_sockets[i] = accept(socket_desc, NULL, 0);
+        FD_SET(client_sockets[i], &fds);
+        if(max_fd < client_sockets[i]) {
+            max_fd = client_sockets[i];
+        }
     }
- 
+    
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
+        select(max_fd + 1, &fds, NULL, NULL, NULL);
         for(int i = 0; i < THREAD_COUNT; ++i) {
+            if(!FD_ISSET(client_sockets[i], &fds)) {
+                FD_SET(client_sockets[i], &fds);
+                continue;
+            }
             int msglen = 0;
             // try to use select or epoll
-            if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
-                /* recv don't guarantee that a message of the specified length will be received.
-                 * So it is necessary to wait for the remainder of the message in this case. */
-                while(msglen != ALL_SIZE) {
-                    int len = recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, 0);
-                    msglen += len;
-                }
-                task* client_task = task_init(client_sockets[i], client_message); 
-                task_array_push(&tarray, client_task);
-                client_message = calloc(ALL_SIZE + 1, 1);
+            msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT);
+            /* recv don't guarantee that a message of the specified length will be received.
+             * So it is necessary to wait for the remainder of the message in this case. */
+            while(msglen != ALL_SIZE) {
+                int len = recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, 0);
+                msglen += len;
             }
+            task* client_task = task_init(client_sockets[i], client_message); 
+            task_array_push(&tarray, client_task);
+            client_message = calloc(ALL_SIZE + 1, 1);
         }
     }
     free(client_message);
