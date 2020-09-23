@@ -1,8 +1,9 @@
 #include <errno.h>
+#include <sys/time.h>
 #include "client-server.h"
 #include "task.h"
 
-#define BUF_SIZE 2000
+#define BUF_SIZE 5000
 
 typedef struct {
     int next_message_num;
@@ -99,22 +100,34 @@ void* receiver() {
 
 void* worker() {
     for(;;) {
+        struct timeval start_time, task_get_time, write_time, send_time;
+        gettimeofday(&start_time, NULL); //
+
         task* my_task = task_array_get(&tarray);
+        gettimeofday(&task_get_time, NULL); // 
+
         /* Next operation is need to wait writing of previous message. */
         file_info_lock(&files_info[my_task -> thread_num], my_task -> message_num); 
         file_info_write(&files_info[my_task -> thread_num], skip_head(my_task -> client_message));
-      
+        
+        gettimeofday(&write_time, NULL); //
+         
         if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
             perror(strerror(errno));
             exit(-1); 
         } 
         /* Now we write that next message have number = message_num + 1 */
-        file_info_unlock(&files_info[my_task -> thread_num]);
-        
+        file_info_unlock(&files_info[my_task -> thread_num]); 
+        gettimeofday(&send_time, NULL); //
         if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
             close(files_info[my_task -> thread_num].fd);
         }
         task_free(my_task);
+        printf("task get: %f; write: %f; send: %f\n", 
+                task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
+                write_time.tv_sec - task_get_time.tv_sec + (write_time.tv_usec - task_get_time.tv_usec) / 1000000.,
+                send_time.tv_sec - write_time.tv_sec + (send_time.tv_usec - write_time.tv_usec) / 1000000.
+                );
     }
     pthread_exit(0);
 }

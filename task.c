@@ -65,6 +65,7 @@ void task_array_push(task_array* tarray, task* t) {
     tarray -> array[tarray -> end % tarray -> space] = t;
     tarray -> end++;
     tarray -> size++;
+   // printf("%d\n", tarray -> size);
     
     count_lock_up(&tarray -> wlock);
 }
@@ -77,7 +78,7 @@ void task_array_pop(task_array* tarray) {
     tarray -> array[tarray -> start % tarray -> space] = NULL;
     tarray -> start++;
     tarray -> size--;
-
+    
     pthread_mutex_unlock(&tarray -> mutex);
     count_lock_up(&tarray -> rlock);
 }
