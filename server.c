@@ -1,12 +1,11 @@
 #include <errno.h>
-#include <sys/time.h>
+#include<sys/time.h>
 #include "client-server.h"
 #include "task.h"
 
-#define BUF_SIZE 5000
-
 typedef struct {
     int next_message_num;
+    int message_count;
     int fd;
     pthread_mutex_t mutex;
 } file_info;
@@ -15,37 +14,43 @@ typedef struct {
 file_info file_info_init(char* filename) {
     file_info fileinfo;
     fileinfo.fd = open(filename, O_APPEND|O_CREAT|O_WRONLY, __S_IWRITE|__S_IREAD);
-    fileinfo.next_message_num = 0;
+    fileinfo.next_message_num = -1;
+    fileinfo.message_count = 0;
     pthread_mutex_init(&fileinfo.mutex, NULL);
     return fileinfo;
 } 
 
-void file_info_lock(file_info* fi, int wait_value) {
-    for(;;) {
-        pthread_mutex_lock(&fi -> mutex);
-        if(fi -> next_message_num == wait_value) {
-            break;
-        } else {
-            pthread_mutex_unlock(&fi -> mutex);
-        }
-    }
-}
+void file_info_write(file_info* fi, task* t) {
+    int prev_num = 0;
+    int my_m_count = 0;
 
-void file_info_unlock(file_info* fi) {
-    fi -> next_message_num++;
+    pthread_mutex_lock(&fi -> mutex);
+    
+    prev_num = fi -> next_message_num;
+    fi -> next_message_num = t -> message_num;
+    my_m_count = fi -> message_count++;
+    write(fi -> fd, skip_head(t -> client_message), MESSAGE_SIZE);
+    
     pthread_mutex_unlock(&fi -> mutex);
-}
-
-void file_info_write(file_info* fi, char* message) {
-    write(fi -> fd, message, MESSAGE_SIZE);
-    fsync(fi -> fd);
+    
+    // writing on disk have done becouse page cashe size = 4096. 
+    // it means that if we write(...) 8192b. system should write of disk the second part of last message
+    if(prev_num != -1) {
+        int prnum = t -> message_num - 1;
+        send(t -> client_socket, &prnum, sizeof(int), 0);   
+    }
+    if(my_m_count == SEND_COUNT) {
+        fsync(fi -> fd);
+        send(t -> client_socket, &t -> message_num, sizeof(int), 0); // the will not be any new messages here   
+        close(fi -> fd);
+    }
 }
 
 void server_init(int* socket_desc, struct sockaddr_in* server) {
     *socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     server -> sin_family = AF_INET;
-	server -> sin_addr.s_addr = INADDR_ANY;
-	server -> sin_port = htons( SERVER_PORT );
+    server -> sin_addr.s_addr = INADDR_ANY;
+    server -> sin_port = htons( SERVER_PORT );
     
     bind(*socket_desc,(struct sockaddr *)server , sizeof(*server));
     listen(*socket_desc, THREAD_COUNT);
@@ -100,34 +105,18 @@ void* receiver() {
 
 void* worker() {
     for(;;) {
-        struct timeval start_time, task_get_time, write_time, send_time;
-        gettimeofday(&start_time, NULL); //
-
+        //struct timeval start_time, task_get_time, send_time;
+        //gettimeofday(&start_time, NULL); //
         task* my_task = task_array_get(&tarray);
-        gettimeofday(&task_get_time, NULL); // 
+        //gettimeofday(&task_get_time, NULL); // 
+        file_info_write(&files_info[my_task -> thread_num], my_task); 
+        //gettimeofday(&send_time, NULL); //
 
-        /* Next operation is need to wait writing of previous message. */
-        file_info_lock(&files_info[my_task -> thread_num], my_task -> message_num); 
-        file_info_write(&files_info[my_task -> thread_num], skip_head(my_task -> client_message));
-        
-        gettimeofday(&write_time, NULL); //
-         
-        if(send(my_task -> client_socket, &my_task -> message_num, sizeof(int), 0) == -1) {
-            perror(strerror(errno));
-            exit(-1); 
-        } 
-        /* Now we write that next message have number = message_num + 1 */
-        file_info_unlock(&files_info[my_task -> thread_num]); 
-        gettimeofday(&send_time, NULL); //
-        if(files_info[my_task -> thread_num].next_message_num == SEND_COUNT) {
-            close(files_info[my_task -> thread_num].fd);
-        }
         task_free(my_task);
-        printf("task get: %f; write: %f; send: %f\n", 
+        /*printf("task get: %f; write: %f\n", 
                 task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
-                write_time.tv_sec - task_get_time.tv_sec + (write_time.tv_usec - task_get_time.tv_usec) / 1000000.,
-                send_time.tv_sec - write_time.tv_sec + (send_time.tv_usec - write_time.tv_usec) / 1000000.
-                );
+                send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.
+        );*/
     }
     pthread_exit(0);
 }
@@ -137,7 +126,7 @@ int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
     pthread_t receiver_thread;
-    task_array_init(&tarray, BUF_SIZE); 
+    task_array_init(&tarray); 
 
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];

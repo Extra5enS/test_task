@@ -64,15 +64,15 @@ void *client_thread(void* arg) {
             num = -1;
             recv(socket_desc, &num, sizeof(int), flage);
             if(num != -1) {
-                string_array_delete(&sarray);
+                string_array_delete(&sarray, num);
             }
         } while(num != -1 && sarray.size != 0);
-        string_array_add(&sarray, message);
+        string_array_add(&sarray, i, message);
     }
     while(sarray.size != 0) {
         int num = -1;
         recv(socket_desc, &num, 4, 0);
-        string_array_delete(&sarray);
+        string_array_delete(&sarray, num);
     }
     string_array_free(&sarray);
     close(socket_desc);

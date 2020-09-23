@@ -18,7 +18,7 @@
 #define MESSAGE_SIZE (1024*8)
 #define HEAD_SIZE 20
 #define SEND_COUNT 5000//000
-#define SERVER_PORT 8800
+#define SERVER_PORT 8810
 
 #define skip_head(prt) (prt + HEAD_SIZE)
 #define ALL_SIZE (MESSAGE_SIZE + HEAD_SIZE)
