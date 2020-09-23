@@ -1,5 +1,5 @@
 #include <errno.h>
-#include<sys/time.h>
+#include <sys/time.h>
 #include "client-server.h"
 #include "task.h"
 
@@ -27,17 +27,17 @@ void file_info_write(file_info* fi, task* t) {
     pthread_mutex_lock(&fi -> mutex);
     
     prev_num = fi -> next_message_num;
+    
     fi -> next_message_num = t -> message_num;
-    my_m_count = fi -> message_count++;
     write(fi -> fd, skip_head(t -> client_message), MESSAGE_SIZE);
+    my_m_count = ++fi -> message_count;
     
     pthread_mutex_unlock(&fi -> mutex);
     
     // writing on disk have done becouse page cashe size = 4096. 
-    // it means that if we write(...) 8192b. system should write of disk the second part of last message
+    // it means that if we write(...) 8192b. system should write of disk the second part of last message 
     if(prev_num != -1) {
-        int prnum = t -> message_num - 1;
-        send(t -> client_socket, &prnum, sizeof(int), 0);   
+        send(t -> client_socket, &prev_num, sizeof(int), 0);   
     }
     if(my_m_count == SEND_COUNT) {
         fsync(fi -> fd);
@@ -78,24 +78,27 @@ void* receiver() {
     
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
-        select(max_fd + 1, &fds, NULL, NULL, NULL);
+        //select(max_fd + 1, &fds, NULL, NULL, NULL);
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            if(!FD_ISSET(client_sockets[i], &fds)) {
-                FD_SET(client_sockets[i], &fds);
-                continue;
-            }
+            /*
+               if(!FD_ISSET(client_sockets[i], &fds)) {
+               FD_SET(client_sockets[i], &fds);
+               continue;
+               }*/
             int msglen = 0;
             // try to use select or epoll
-            msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT);
-            /* recv don't guarantee that a message of the specified length will be received.
-             * So it is necessary to wait for the remainder of the message in this case. */
-            while(msglen != ALL_SIZE) {
-                int len = recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, 0);
-                msglen += len;
+            if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
+                /* recv don't guarantee that a message of the specified length will be received.
+                 * So it is necessary to wait for the remainder of the message in this case. */
+                while(msglen != ALL_SIZE) {
+                    int len = recv(client_sockets[i], client_message + msglen, ALL_SIZE - msglen, 0);
+                    msglen += len;
+                }
+                task* client_task = task_init(client_sockets[i], client_message); 
+                task_array_push(&tarray, client_task);
+                client_message = calloc(ALL_SIZE + 1, 1);
+
             }
-            task* client_task = task_init(client_sockets[i], client_message); 
-            task_array_push(&tarray, client_task);
-            client_message = calloc(ALL_SIZE + 1, 1);
         }
     }
     free(client_message);
@@ -114,9 +117,9 @@ void* worker() {
 
         task_free(my_task);
         /*printf("task get: %f; write: %f\n", 
-                task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
-                send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.
-        );*/
+          task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
+          send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.
+          );*/
     }
     pthread_exit(0);
 }

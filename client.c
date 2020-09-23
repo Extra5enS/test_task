@@ -45,7 +45,7 @@ void *client_thread(void* arg) {
     getsockopt(socket_desc, SOL_SOCKET, SO_SNDBUF, &recv_buf_size, &size_of_int); // return value greater then wmem_max
 
     string_array sarray;
-    string_array_init(&sarray, 2 * recv_buf_size / ALL_SIZE);
+    string_array_init(&sarray, recv_buf_size / ALL_SIZE);
     
     for(int i = 0; i < SEND_COUNT; i++) {
         char* message = calloc(ALL_SIZE + 1, 1); 
