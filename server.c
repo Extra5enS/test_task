@@ -117,9 +117,8 @@ void* worker() {
 
         task_free(my_task);
         /*printf("task get: %f; write: %f\n", 
-          task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
-          send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.
-          );*/
+                task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
+                send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.);*/
     }
     pthread_exit(0);
 }

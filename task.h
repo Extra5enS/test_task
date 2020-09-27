@@ -14,7 +14,7 @@ void task_free(task* client_task);
 
 typedef struct {
     task* array;
-    pthread_mutex_t mutex, rm, wm;
+    pthread_mutex_t rm, wm;
 } task_array;
 
 void task_array_init(task_array* tarray);

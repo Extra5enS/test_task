@@ -19,7 +19,7 @@ void task_free(task* client_task) {
 
 void task_array_init(task_array* tarray) {
     tarray -> array = NULL;
-    pthread_mutex_init(&tarray -> mutex, NULL);
+    //pthread_mutex_init(&tarray -> mutex, NULL);
     pthread_mutex_init(&tarray -> rm, NULL);
     pthread_mutex_init(&tarray -> wm, NULL);
     pthread_mutex_lock(&tarray -> wm);
@@ -32,25 +32,25 @@ void task_array_push(task_array* tarray, task* t) {
 }
 
 void task_array_pop(task_array* tarray) {
-    pthread_mutex_lock(&tarray -> mutex);
+    //pthread_mutex_lock(&tarray -> mutex);
     pthread_mutex_lock(&tarray -> wm);
     
     free(tarray -> array);
     tarray -> array = NULL;
 
     pthread_mutex_unlock(&tarray -> rm);
-    pthread_mutex_unlock(&tarray -> mutex);
+    //pthread_mutex_unlock(&tarray -> mutex);
 }
 
 task* task_array_get(task_array* tarray) {
     task* res_task = NULL;
-    pthread_mutex_lock(&tarray -> mutex);
+    //pthread_mutex_lock(&tarray -> mutex);
     pthread_mutex_lock(&tarray -> wm);
 
     res_task = tarray -> array;
     tarray -> array = NULL;
     
-    pthread_mutex_unlock(&tarray -> mutex);
+    //pthread_mutex_unlock(&tarray -> mutex);
     pthread_mutex_unlock(&tarray -> rm);
     
     return res_task;
