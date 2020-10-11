@@ -3,9 +3,13 @@
 #include "client-server.h"
 #include "task.h"
 
+#define MESSAGE_ARRAY_SIZE 100
+
 typedef struct {
-    int next_message_num;
+    int* message_array;
+    int array_size;
     int message_count;
+    int sended_num;
     int fd;
     pthread_mutex_t mutex;
 } file_info;
@@ -14,34 +18,43 @@ typedef struct {
 file_info file_info_init(char* filename) {
     file_info fileinfo;
     fileinfo.fd = open(filename, O_APPEND|O_CREAT|O_WRONLY, __S_IWRITE|__S_IREAD);
-    fileinfo.next_message_num = -1;
+    fileinfo.message_array = calloc(MESSAGE_ARRAY_SIZE, sizeof(int));
     fileinfo.message_count = 0;
+    fileinfo.array_size = 0;
+    fileinfo.sended_num = 0;
     pthread_mutex_init(&fileinfo.mutex, NULL);
     return fileinfo;
 } 
 
 void file_info_write(file_info* fi, task* t) {
-    int prev_num = 0;
-    int my_m_count = 0;
-
+    int array_size = 0;
+    int sended_num = 0;
+    int* message_array;
+    
     pthread_mutex_lock(&fi -> mutex);
     
-    prev_num = fi -> next_message_num;
-    
-    fi -> next_message_num = t -> message_num;
+    fi -> message_array[fi -> array_size] = t -> message_num; 
+    fi -> array_size++;
     write(fi -> fd, skip_head(t -> client_message), MESSAGE_SIZE);
-    my_m_count = ++fi -> message_count;
-    
+    array_size = fi -> array_size;
+    if(array_size == MESSAGE_ARRAY_SIZE) {
+        message_array = calloc(MESSAGE_ARRAY_SIZE, sizeof(int));
+        memcpy(message_array, fi -> message_array, MESSAGE_ARRAY_SIZE * sizeof(int));
+        fi -> array_size = 0;
+        sended_num = ++fi -> sended_num;
+    }
     pthread_mutex_unlock(&fi -> mutex);
     
     // writing on disk have done becouse page cashe size = 4096. 
     // it means that if we write(...) 8192b. system should write of disk the second part of last message 
-    if(prev_num != -1) {
-        send(t -> client_socket, &prev_num, sizeof(int), 0);   
-    }
-    if(my_m_count == SEND_COUNT) {
+    if(array_size == MESSAGE_ARRAY_SIZE) {
         fsync(fi -> fd);
-        send(t -> client_socket, &t -> message_num, sizeof(int), 0); // the will not be any new messages here   
+        for(size_t i = 0; i < MESSAGE_ARRAY_SIZE; ++i) {
+            send(t -> client_socket, &message_array[i], sizeof(int), 0); // the will not be any new messages here    
+        }
+        free(message_array);
+    }
+    if(sended_num * MESSAGE_ARRAY_SIZE == SEND_COUNT) {
         close(fi -> fd);
     }
 }

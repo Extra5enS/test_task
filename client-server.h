@@ -12,6 +12,7 @@
 #include<sys/select.h>
 
 #include <sys/stat.h>
+#define _GNU_SOURCE
 #include <fcntl.h>
 
 #define THREAD_COUNT 64 
