@@ -58,7 +58,7 @@ void server_init(int* socket_desc, struct sockaddr_in* server) {
 
 task* global_task;
 file_info files_info[THREAD_COUNT];
-task_array tarray;
+nqueue nq;
 
 void* receiver() {
     int socket_desc;
@@ -78,13 +78,12 @@ void* receiver() {
     
     char* client_message = calloc(ALL_SIZE + 1, 1); 
     for(;;) {
-        //select(max_fd + 1, &fds, NULL, NULL, NULL);
+        select(max_fd + 1, &fds, NULL, NULL, NULL);
         for(int i = 0; i < THREAD_COUNT; ++i) {
-            /*
-               if(!FD_ISSET(client_sockets[i], &fds)) {
+            if(!FD_ISSET(client_sockets[i], &fds)) {
                FD_SET(client_sockets[i], &fds);
                continue;
-               }*/
+            }
             int msglen = 0;
             // try to use select or epoll
             if((msglen = recv(client_sockets[i], client_message, ALL_SIZE, MSG_DONTWAIT)) > 0) {
@@ -95,7 +94,7 @@ void* receiver() {
                     msglen += len;
                 }
                 task* client_task = task_init(client_sockets[i], client_message); 
-                task_array_push(&tarray, client_task);
+                nqueue_push(&nq, client_task);
                 client_message = calloc(ALL_SIZE + 1, 1);
 
             }
@@ -106,11 +105,13 @@ void* receiver() {
 }
 
 
-void* worker() {
+void* worker(void* num) {
+    int my_num = *(int*)num;
     for(;;) {
         //struct timeval start_time, task_get_time, send_time;
         //gettimeofday(&start_time, NULL); //
-        task* my_task = task_array_get(&tarray);
+        task* my_task = nqueue_get(&nq, my_num);
+
         //gettimeofday(&task_get_time, NULL); // 
         file_info_write(&files_info[my_task -> thread_num], my_task); 
         //gettimeofday(&send_time, NULL); //
@@ -127,8 +128,9 @@ void* worker() {
 int main() {
     global_task = NULL;
     pthread_t worker_thread_mass[THREAD_COUNT];
+    int num_array[THREAD_COUNT];
     pthread_t receiver_thread;
-    task_array_init(&tarray); 
+    nqueue_init(&nq, THREAD_COUNT / 3); 
 
     for(int i = 0; i < THREAD_COUNT; ++i) {
         char filename[3];
@@ -138,14 +140,15 @@ int main() {
 
     pthread_create(&receiver_thread, NULL, receiver, NULL);
     for(int i = 0; i < THREAD_COUNT / 3; ++i) {
-        pthread_create(&worker_thread_mass[i], NULL, worker, NULL);
+        num_array[i] = i;
+        pthread_create(&worker_thread_mass[i], NULL, worker, &num_array[i]);
     }
 
     pthread_join(receiver_thread, NULL);
     for(int i = 0; i < THREAD_COUNT / 3; ++i) {
         pthread_join(worker_thread_mass[i], NULL);
     }
-    task_array_free(&tarray);
+    nqueue_free(&nq);
     return 0;
 }
 
