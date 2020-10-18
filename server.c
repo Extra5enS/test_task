@@ -3,7 +3,7 @@
 #include "client-server.h"
 #include "task.h"
 
-#define MESSAGE_ARRAY_SIZE 100
+#define MESSAGE_ARRAY_SIZE 200
 
 typedef struct {
     int* message_array;
@@ -45,12 +45,12 @@ void file_info_write(file_info* fi, task* t) {
     }
     pthread_mutex_unlock(&fi -> mutex);
     
-    // writing on disk have done becouse page cashe size = 4096. 
-    // it means that if we write(...) 8192b. system should write of disk the second part of last message 
     if(array_size == MESSAGE_ARRAY_SIZE) {
-        fsync(fi -> fd);
+        sync_file_range(fi -> fd, (sended_num - 1) * MESSAGE_ARRAY_SIZE * MESSAGE_SIZE, 
+                       sended_num * MESSAGE_ARRAY_SIZE * MESSAGE_SIZE,
+                       SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE);
         for(size_t i = 0; i < MESSAGE_ARRAY_SIZE; ++i) {
-            send(t -> client_socket, &message_array[i], sizeof(int), 0); // the will not be any new messages here    
+            send(t -> client_socket, &message_array[i], sizeof(int), 0); 
         }
         free(message_array);
     }
@@ -121,18 +121,9 @@ void* receiver() {
 void* worker(void* num) {
     int my_num = *(int*)num;
     for(;;) {
-        //struct timeval start_time, task_get_time, send_time;
-        //gettimeofday(&start_time, NULL); //
         task* my_task = nqueue_get(&nq, my_num);
-
-        //gettimeofday(&task_get_time, NULL); // 
         file_info_write(&files_info[my_task -> thread_num], my_task); 
-        //gettimeofday(&send_time, NULL); //
-
         task_free(my_task);
-        /*printf("task get: %f; write: %f\n", 
-                task_get_time.tv_sec - start_time.tv_sec + (task_get_time.tv_usec - start_time.tv_usec) / 1000000.,
-                send_time.tv_sec - task_get_time.tv_sec + (send_time.tv_usec - task_get_time.tv_usec) / 1000000.);*/
     }
     pthread_exit(0);
 }
